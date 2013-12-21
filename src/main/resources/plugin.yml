@@ -1,0 +1,13 @@
+name: PlugScript
+main: net.connorcpu.plugscript.PlugScript
+description: Loads script files as plugins
+version: 1.0
+author: Connorcpu
+
+commands:
+  plugscript:
+    description: Performs various actions on plugscripts
+    aliases: [ps, pscript]
+    permission: plugscript.admin
+    usage: "§eUsage: /<command> <list|reload <script>|rescan>"
+
