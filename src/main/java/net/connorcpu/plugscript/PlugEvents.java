@@ -22,6 +22,7 @@ import java.util.Map;
  */
 public class PlugEvents {
     private static Map<String, List<CustomScriptEvent>> eventHandlers = new HashMap<>();
+    private static EmptyListener emptyListener = new EmptyListener();
 
     protected static void registerHandler(PlugScript plugScript, String plugin, EventHandler handler) {
         List<CustomScriptEvent> handlers;
@@ -30,7 +31,7 @@ public class PlugEvents {
         } else {
             handlers = eventHandlers.get(plugin);
         }
-        CustomScriptEvent executor = getHandler(handler.handlerId(), handlers);
+        CustomScriptEvent executor = getHandler(handler.getHandlerId(), handlers);
         if (executor != null) {
             executor.setHandler(handler);
             executor.setDisabled(false);
@@ -40,19 +41,19 @@ public class PlugEvents {
         executor = new CustomScriptEvent(handler);
         PluginManager pluginManager = Bukkit.getServer().getPluginManager();
         pluginManager.registerEvent(
-                handler.eventType(),
-                null,
-                handler.priority(),
+                handler.getEventType(),
+                emptyListener,
+                handler.getPriority(),
                 executor,
                 plugScript,
-                handler.ignoreCancelled());
+                handler.isIgnoreCancelled());
 
         handlers.add(executor);
     }
 
     private static CustomScriptEvent getHandler(String handlerId, List<CustomScriptEvent> eventList) {
         for (CustomScriptEvent event : eventList) {
-            if (event.getHandler().handlerId().equals(handlerId)) {
+            if (event.getHandler().getHandlerId().equals(handlerId)) {
                 return event;
             }
         }
@@ -79,14 +80,18 @@ public class PlugEvents {
         private boolean disabled;
 
         public CustomScriptEvent(EventHandler handler) {
-            this.disabled = true;
+            this.disabled = false;
             this.handler = handler;
         }
 
         @Override public void execute(Listener listener, Event event) throws EventException {
             if (!disabled) {
-                handler.execute(event);
+                handler.getExecutor().execute(listener, event);
             }
         }
+    }
+
+    static class EmptyListener implements Listener {
+
     }
 }

@@ -9,5 +9,10 @@ commands:
     description: Performs various actions on plugscripts
     aliases: [ps, pscript]
     permission: plugscript.admin
-    usage: "§eUsage: /<command> <list|reload <script>|rescan>"
+    usage: "§eUsage: /<command> <list|reload <script>|rescan|eval <plugin> [code]>"
+  plugscripteval:
+    description: Evals code in an engine
+    aliases: [pse, eval, pe]
+    permission: plugscript.admin
+    usage: "§eUsage: /<command> <engine> [code]"
 

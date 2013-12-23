@@ -1,7 +1,9 @@
 package net.connorcpu.plugscript;
 
+import lombok.Data;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
+import org.bukkit.plugin.EventExecutor;
 
 /**
  * Created with IntelliJ IDEA.
@@ -10,10 +12,10 @@ import org.bukkit.event.EventPriority;
  * Time: 11:08 AM
  * To change this template use File | Settings | File Templates.
  */
-public interface EventHandler {
-    void execute(Event event);
-    EventPriority priority();
-    String handlerId();
-    Class<? extends Event> eventType();
-    boolean ignoreCancelled();
+@Data public class EventHandler {
+    private EventExecutor executor;
+    private String handlerId;
+    private EventPriority priority;
+    private Class<? extends Event> eventType;
+    private boolean ignoreCancelled;
 }
