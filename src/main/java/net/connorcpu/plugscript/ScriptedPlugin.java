@@ -12,6 +12,7 @@ import org.jruby.exceptions.RaiseException;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -33,6 +34,12 @@ import java.util.logging.Level;
 
     public boolean reloadScript() {
         PlugScript plugin = context.getPlugin();
+        context.unregisterAllEvents();
+        try {
+            context.unregisterAllCommands();
+        } catch (Throwable t) {
+        }
+
         engine = new ScriptingContainer(LocalContextScope.SINGLETHREAD, LocalVariableBehavior.PERSISTENT);
         engine.setCompileMode(RubyInstanceConfig.CompileMode.JIT);
         engine.setCompatVersion(rubyCompat());
@@ -42,7 +49,7 @@ import java.util.logging.Level;
         File jrbFolder = new File(plugin.getConfig().getString("jruby.path"));
         File rubyFolder = new File(jrbFolder, "lib/ruby");
         String[] loadPaths = new String[]{
-            new File("./plugins/" + name).getAbsolutePath(),
+            new File("plugins/" + name).getAbsolutePath(),
             new File(rubyFolder, "site_ruby/" + rubyVersion()).getAbsolutePath(),
             new File(rubyFolder, "site_ruby/shared").getAbsolutePath(),
             new File(rubyFolder, rubyVersion()).getAbsolutePath()
@@ -54,7 +61,7 @@ import java.util.logging.Level;
             && loadFile(engine, scriptFile);
     }
 
-    private boolean loadFile(ScriptingContainer runtime, File file) {
+    public boolean loadFile(ScriptingContainer runtime, File file) {
         try {
             Reader input = new FileReader(file);
 
@@ -77,7 +84,7 @@ import java.util.logging.Level;
         }
     }
 
-    private boolean loadResource(ScriptingContainer runtime, String name) {
+    public boolean loadResource(ScriptingContainer runtime, String name) {
         try {
             Reader input = new InputStreamReader(PlugScript.class.getResourceAsStream(name));
 

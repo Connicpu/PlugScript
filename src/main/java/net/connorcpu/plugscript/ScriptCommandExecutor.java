@@ -14,6 +14,7 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = false)
 @Data public class ScriptCommandExecutor extends Command {
     ScriptCommand command;
+    String pluginName;
 
     public ScriptCommandExecutor(String name, String description, String usage,
                                  List<String> aliases, ScriptCommand command) {

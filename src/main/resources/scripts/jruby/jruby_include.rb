@@ -1,8 +1,6 @@
 require 'java'
 
-def net
-  Java::Net
-end
+def net; Java::Net; end
 
 def match_to_enum(str, enum)
   str = str.gsub('_', '').upcase
@@ -23,22 +21,22 @@ class EventExecutorWrapper
   end
 end
 
-def register_event(id, type, priority = :normal, ignoreCancelled = false, &handler)
-  fullClassName = "org.bukkit.event." + type.join(".")
-  fullType = java.lang.Class.forName fullClassName
+def register_event(id, type, priority = :normal, ignore_cancelled = false, &handler)
+  full_class_name = "org.bukkit.event." + type.join(".")
+  full_type = java.lang.Class.forName full_class_name
 
-  eventHandler = net.connorcpu.plugscript.EventHandler.new
+  event_handler = net.connorcpu.plugscript.EventHandler.new
 
-  eventHandler.setHandlerId id
-  eventHandler.setPriority match_to_enum(priority.to_s, org.bukkit.event.EventPriority)
-  eventHandler.setEventType fullType
-  eventHandler.setIgnoreCancelled ignoreCancelled
+  event_handler.handler_id       = id
+  event_handler.priority         = match_to_enum(priority.to_s, org.bukkit.event.EventPriority)
+  event_handler.event_type       = full_type
+  event_handler.ignore_cancelled = ignore_cancelled
 
-  handlerWrapper = EventExecutorWrapper.new(handler)
-  eventHandler.setExecutor handlerWrapper
+  handler_wrapper = EventExecutorWrapper.new(handler)
+  event_handler.executor = handler_wrapper
 
-  $context.registerEvent eventHandler
-  return eventHandler
+  $context.register_event event_handler
+  return event_handler
 end
 
 class ScriptCommandWrapper
@@ -51,7 +49,7 @@ class ScriptCommandWrapper
 
   java_signature 'boolean execute(org.bukkit.command.CommandSender, java.lang.String, java.lang.String[])'
   def execute(sender, label, args)
-    if @permission and not sender.hasPermission(@permission)
+    if @permission and not sender.has_permission(@permission)
       if @permission_message
         sender.sendMessage "\u00A7c#{@permission_message}"
       else
@@ -79,7 +77,7 @@ end
 def register_command(data = {}, &handler)
   usage = "\u00A7e" + (data[:usage] || "/<command>")
 
-  handlerWrapper = ScriptCommandWrapper.new(
+  handler_wrapper = ScriptCommandWrapper.new(
     handler, 
     data[:permission],
     data[:permission_message],
@@ -91,10 +89,10 @@ def register_command(data = {}, &handler)
     data[:description],
     usage,
     data[:aliases] || [],
-    handlerWrapper
+    handler_wrapper
   )
 
-  $context.registerCommand command
+  $context.register_command command
 end
 
 def RunnableWrapper
@@ -120,13 +118,59 @@ class RubySyncTask < org.bukkit.scheduler.BukkitRunnable
 end
 
 def run_sync(&handler)
-  RubySyncTask.new(handler).runTask($context.getPlugin)
+  RubySyncTask.new { handler.call() }.run_task($context.plugin)
 end
 
 def broadcast_message(message)
   run_sync {
-    $context.getServer.broadcastMessage message
+    $context.server.broadcast_message message
   }
+end
+
+class PlayerAccessor
+  def [](name)
+    name = name.to_s if name.is_a?(Symbol)
+
+    if name.starts_with?("@")
+      return $context.server.get_player_exact name[1,16]
+    end
+
+    player = $context.server.get_player_exact name
+    if player
+      return player
+    end
+    player = $context.server.get_player name
+    if player
+      return player
+    end
+
+    name.downcase!
+    self.each do |player|
+      display_name = org.bukkit.ChatColor.strip_color player.display_name.downcase
+      if player.name.downcase.starts_with?(name)
+        return player
+      elsif display_name.downcase.starts_with?(name)
+        return player
+      end
+    end
+
+    return nil
+  end
+
+  def each
+    $context.server.online_players.each do |player|
+      yield player
+    end
+  end
+end
+
+$players = PlayerAccessor.new
+def plrs; $players; end
+
+class Symbol
+  def plr
+    $players[self]
+  end
 end
 
 

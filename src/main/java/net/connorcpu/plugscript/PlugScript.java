@@ -120,7 +120,8 @@ public class PlugScript extends JavaPlugin {
         String engineName = args[0];
         String command = joinCommandArgs(args);
 
-        ScriptingContainer engine = findPluginCaseInsensitive(engineName).getEngine();
+        ScriptedPlugin plugin = findPluginCaseInsensitive(engineName);
+        ScriptingContainer engine = plugin.getEngine();
         engine.put("$p", sender);
         if (sender instanceof Player) {
             Player p = (Player)sender;
@@ -132,9 +133,10 @@ public class PlugScript extends JavaPlugin {
         }
 
         try {
+            sender.sendMessage("\u00A77" + plugin.getName() + "> " + command);
             Object result = engine.runScriptlet(command);
             if (result == null) {
-                result = "null";
+                result = "nil";
             }
             sender.sendMessage("\u00A7a" + result.toString());
         } catch (Throwable ex) {
@@ -262,8 +264,8 @@ public class PlugScript extends JavaPlugin {
     @Data public class PluginContext {
         private final String engineName;
         private final String engineType;
-        private ScriptEngine engine;
         private ScriptedPlugin plugin;
+        private List<String> registeredEvents = new LinkedList<>();
 
         @Setter(AccessLevel.PRIVATE) private FileConfiguration config = null;
         @Setter(AccessLevel.PRIVATE) private File configFile = null;
@@ -304,15 +306,30 @@ public class PlugScript extends JavaPlugin {
         }
 
         public void registerEvent(EventHandler handler) {
+            if (!registeredEvents.contains(handler.getHandlerId())) {
+                registeredEvents.add(handler.getHandlerId());
+            }
             PlugEvents.registerHandler(PlugScript.this, this.engineName, handler);
         }
 
         public void unregisterEvent(String handlerId) {
+            if (registeredEvents.contains(handlerId)) {
+                registeredEvents.remove(handlerId);
+            }
             PlugEvents.unregisterHandler(this.engineName, handlerId);
+        }
+
+        public void unregisterAllEvents() {
+            for (String handlerId : registeredEvents) {
+                PlugEvents.unregisterHandler(this.engineName, handlerId);
+            }
+            registeredEvents.clear();
         }
 
         public void registerCommand(ScriptCommandExecutor command)
             throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+            command.setPluginName(engineName);
+
             Server server = getServer();
             SimpleCommandMap commandMap = (SimpleCommandMap) server
                 .getClass().getMethod("getCommandMap").invoke(server);
@@ -334,27 +351,26 @@ public class PlugScript extends JavaPlugin {
             commandMap.getCommands().remove(command);
         }
 
-        public boolean require(String scriptFile) throws FileNotFoundException, ScriptException {
-            File directory = new File("./plugins/" + this.engineName);
-            if (!directory.exists()) {
-                return false;
-            }
-
-            File file = new File(directory, scriptFile);
-            if (!file.exists()) {
-                return false;
-            }
-
-            for (File includedFile : this.plugin.getAddedFiles()) {
-                if (includedFile.getAbsolutePath().equalsIgnoreCase(file.getAbsolutePath())) {
-                    return true;
+        public void unregisterAllCommands()
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+            Server server = getServer();
+            SimpleCommandMap commandMap = (SimpleCommandMap) server
+                .getClass().getMethod("getCommandMap").invoke(server);
+            List<Command> commandsCopy = new ArrayList<>(commandMap.getCommands());
+            for (Command command : commandsCopy) {
+                if (command instanceof ScriptCommandExecutor) {
+                    ScriptCommandExecutor cmd = (ScriptCommandExecutor)command;
+                    if (cmd.getPluginName().equals(engineName)) {
+                        commandMap.getCommands().remove(command);
+                    }
                 }
             }
+        }
 
-            engine.eval(new BufferedReader(new FileReader(file)));
-
-            this.plugin.getAddedFiles().add(file);
-            return true;
+        public boolean require(String scriptFile) throws FileNotFoundException, ScriptException {
+            File directory = new File("./plugins/" + this.engineName);
+            File file = new File(directory, scriptFile);
+            return plugin.loadFile(plugin.getEngine(), file);
         }
     }
 }
