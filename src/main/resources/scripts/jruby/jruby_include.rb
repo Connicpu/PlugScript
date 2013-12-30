@@ -1,4 +1,5 @@
 require 'java'
+$LOAD_PATH << './lib/ruby'
 
 def net; Java::Net; end
 
@@ -129,9 +130,11 @@ end
 
 class PlayerAccessor
   def [](name)
-    name = name.to_s if name.is_a?(Symbol)
+    return name if name.is_a?(org.bukkit.OfflinePlayer)
 
-    if name.starts_with?("@")
+    name = name.to_s
+
+    if name =~ /^@/
       return $context.server.get_player_exact name[1,16]
     end
 
@@ -154,6 +157,9 @@ class PlayerAccessor
       end
     end
 
+    player = $context.server.get_offline_player name
+    return player if player.has_played_before?
+
     return nil
   end
 
@@ -171,6 +177,58 @@ class Symbol
   def plr
     $players[self]
   end
+  def plugin
+    $context.server.plugin_manager.get_plugin self.to_s
+  end
+  def plugin?
+    !self.plugin.nil?
+  end
 end
+
+module Cleanup
+  class << self
+    attr_accessor :cleanup_handlers
+  end
+  @cleanup_handlers = []
+
+  class OnDisableHandler
+    java_signature 'void run()'
+    def run
+      Cleanup.cleanup_handlers.each do |handler|
+        handler.call() if handler
+      end
+    end
+  end
+  $context.disable_handler = OnDisableHandler.new
+
+  def register_handler(&handler)
+    @cleanup_handlers << handler if handler
+  end
+  module_function :register_handler
+  public :register_handler
+end
+
+module LongTasks
+  @running_tasks = []
+
+  def start_task(ticks, &handler)
+    task = RubySyncTask.new { handler.call() }
+    task = task.run_task_timer($context.plugin, ticks, ticks)
+    @running_tasks << task
+  end
+  module_function :start_task
+  public :start_task
+
+  def cleanup
+    @running_tasks.each do |task|
+      task.cancel()
+    end
+  end
+  module_function :cleanup
+  public :cleanup
+  Cleanup.register_handler { cleanup }
+end
+
+
 
 

@@ -47,7 +47,11 @@ public class PlugScript extends JavaPlugin {
         reloadConfig();
         saveConfig();
 
-        this.registerJRuby();
+        if (!this.registerJRuby()) {
+            getLogger().severe("JRuby could not be located! Check your config!");
+            return;
+        }
+
         this.loadRubyEngines();
     }
 
@@ -124,7 +128,7 @@ public class PlugScript extends JavaPlugin {
         ScriptingContainer engine = plugin.getEngine();
         engine.put("$p", sender);
         if (sender instanceof Player) {
-            Player p = (Player)sender;
+            Player p = (Player) sender;
             engine.put("$w", p.getWorld());
             engine.put("$l", p.getLocation());
         } else {
@@ -179,32 +183,39 @@ public class PlugScript extends JavaPlugin {
         List<String> newEngines = new LinkedList<>();
         // Find ruby files
         for (File file : pluginFiles) {
-            String name = file.getName();
-            if (!name.toLowerCase().endsWith(".rb"))
-                continue;
+            String engineName = null;
+            try {
+                String name = file.getName();
+                if (!name.toLowerCase().endsWith(".rb"))
+                    continue;
 
-            String engineName = name.substring(0, name.length() - 3).replace(" ", "_");
+                engineName = name.substring(0, name.length() - 3).replace(" ", "_");
 
-            if (engineName.isEmpty() || rubyEngines.containsKey(engineName)) {
-                // No files named ".rb" or duplicate engines
-                continue;
+                if (engineName.isEmpty() || rubyEngines.containsKey(engineName)) {
+                    // No files named ".rb" or duplicate engines
+                    continue;
+                }
+
+                getLogger().info("Loading ruby script " + file.getName());
+
+                ScriptedPlugin plugin = new ScriptedPlugin();
+                PluginContext context = new PluginContext(engineName, "jruby");
+
+                plugin.setScriptFile(file);
+                plugin.setName(engineName);
+                plugin.setContext(context);
+
+                if (plugin.reloadScript()) {
+                    getLogger().log(Level.INFO, "PlugScript " + engineName + " has been loaded successfully");
+                }
+
+                rubyEngines.put(engineName, plugin);
+                newEngines.add(engineName);
+            } catch (Throwable t) {
+                getLogger().severe("PlugScript " + engineName + " could not be loaded");
+                getLogger().severe(t.getMessage());
+                t.printStackTrace();
             }
-
-            getLogger().info("Loading ruby script " + file.getName());
-
-            ScriptedPlugin plugin = new ScriptedPlugin();
-            PluginContext context = new PluginContext(engineName, "jruby");
-
-            plugin.setScriptFile(file);
-            plugin.setName(engineName);
-            plugin.setContext(context);
-
-            if (plugin.reloadScript()) {
-                getLogger().log(Level.INFO, "PlugScript " + engineName + " has been loaded successfully");
-            }
-
-            rubyEngines.put(engineName, plugin);
-            newEngines.add(engineName);
         }
 
         return newEngines;
@@ -240,17 +251,9 @@ public class PlugScript extends JavaPlugin {
             getLogger().log(INFO, "Using JRuby runtime " + jrbJar.getPath());
 
             return true;
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
+        } catch (Throwable e) {
+            return false;
         }
-
-        return false;
     }
 
     @Override public void onDisable() {
@@ -359,7 +362,7 @@ public class PlugScript extends JavaPlugin {
             List<Command> commandsCopy = new ArrayList<>(commandMap.getCommands());
             for (Command command : commandsCopy) {
                 if (command instanceof ScriptCommandExecutor) {
-                    ScriptCommandExecutor cmd = (ScriptCommandExecutor)command;
+                    ScriptCommandExecutor cmd = (ScriptCommandExecutor) command;
                     if (cmd.getPluginName().equals(engineName)) {
                         commandMap.getCommands().remove(command);
                     }

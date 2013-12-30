@@ -33,13 +33,9 @@ import java.util.logging.Level;
     private List<File> addedFiles = new ArrayList<>();
 
     public boolean reloadScript() {
-        PlugScript plugin = context.getPlugin();
-        context.unregisterAllEvents();
-        try {
-            context.unregisterAllCommands();
-        } catch (Throwable t) {
-        }
+        cleanupOldEngine();
 
+        PlugScript plugin = context.getPlugin();
         engine = new ScriptingContainer(LocalContextScope.SINGLETHREAD, LocalVariableBehavior.PERSISTENT);
         engine.setCompileMode(RubyInstanceConfig.CompileMode.JIT);
         engine.setCompatVersion(rubyCompat());
@@ -58,7 +54,21 @@ import java.util.logging.Level;
 
 
         return loadResource(engine, "/scripts/jruby/jruby_include.rb")
+            && loadResource(engine, "/scripts/jruby/permissions.rb")
             && loadFile(engine, scriptFile);
+    }
+
+    private void cleanupOldEngine() {
+        context.unregisterAllEvents();
+        try {
+            context.unregisterAllCommands();
+        } catch (Throwable t) {
+        }
+        Runnable onDisable = context.getDisableHandler();
+        if (onDisable != null) {
+            onDisable.run();
+        }
+        context.setDisableHandler(null);
     }
 
     public boolean loadFile(ScriptingContainer runtime, File file) {
