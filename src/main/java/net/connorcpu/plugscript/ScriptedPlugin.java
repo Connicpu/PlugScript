@@ -46,12 +46,10 @@ import java.util.logging.Level;
         File rubyFolder = new File(jrbFolder, "lib/ruby");
         String[] loadPaths = new String[]{
             new File("plugins/" + name).getAbsolutePath(),
-            new File(rubyFolder, "site_ruby/" + rubyVersion()).getAbsolutePath(),
-            new File(rubyFolder, "site_ruby/shared").getAbsolutePath(),
-            new File(rubyFolder, rubyVersion()).getAbsolutePath()
+            new File(rubyFolder, rubyVersion()).getAbsolutePath(),
+            new File(rubyFolder, "shared").getAbsolutePath()
         };
         engine.setLoadPaths(Arrays.asList(loadPaths));
-
 
         return loadResource(engine, "/scripts/jruby/jruby_include.rb")
             && loadResource(engine, "/scripts/jruby/permissions.rb")
