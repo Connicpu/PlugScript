@@ -370,6 +370,16 @@ public class PlugScript extends JavaPlugin {
             }
         }
 
+        public void sendMessage(InterpluginMessage message) {
+            for (ScriptedPlugin plugin : rubyEngines.values()) {
+                message.setHandlingPlugin(plugin.getName());
+                ScriptingContainer engine = plugin.getEngine();
+                engine.callMethod(null, "rbmessages_handle", message);
+                if (message.isHandled()) return;
+            }
+            message.setHandlingPlugin(null);
+        }
+
         public boolean require(String scriptFile) throws FileNotFoundException, ScriptException {
             File directory = new File("./plugins/" + this.engineName);
             File file = new File(directory, scriptFile);

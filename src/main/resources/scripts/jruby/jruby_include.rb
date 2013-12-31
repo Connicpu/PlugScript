@@ -3,6 +3,8 @@ $LOAD_PATH << './lib/ruby'
 
 def net; Java::Net; end
 
+$logger = $context.plugin.logger
+
 def match_to_enum(str, enum)
   str = str.gsub('_', '').upcase
   enum.values.each { |elem|
@@ -23,7 +25,12 @@ class EventExecutorWrapper
 end
 
 def register_event(id, type, priority = :normal, ignore_cancelled = false, &handler)
-  full_class_name = "org.bukkit.event." + type.join(".")
+  full_class_name = nil
+  if type.first == :custom
+    full_class_name = type.join(".")
+  else
+    full_class_name = "org.bukkit.event." + type.join(".")
+  end
   full_type = java.lang.Class.forName full_class_name
 
   event_handler = net.connorcpu.plugscript.EventHandler.new
@@ -211,24 +218,62 @@ end
 module LongTasks
   @running_tasks = []
 
-  def start_task(ticks, &handler)
+  def self.start_task(ticks, &handler)
     task = RubySyncTask.new { handler.call() }
     task = task.run_task_timer($context.plugin, ticks, ticks)
     @running_tasks << task
   end
-  module_function :start_task
-  public :start_task
 
-  def cleanup
+  def self.cleanup
     @running_tasks.each do |task|
       task.cancel()
     end
   end
-  module_function :cleanup
-  public :cleanup
   Cleanup.register_handler { cleanup }
 end
 
+module Messages
+  @@handlers = {}
 
+  def self.register_handler(id, &handler)
+    id = id.to_sym if id.is_a?(String)
+    @@handlers[id] = handler
+  end
+
+  def self.handle_message(message)
+    id = message.id.to_sym
+    args = message.args
+
+    return unless @@handlers.has_key?(id)
+    result = @@handlers[id].call(*args)
+
+    message.handled = true
+    message.result = result
+  end
+
+  def self.send(id, *args)
+    id = id.to_s
+    message = net.connorcpu.plugscript.InterpluginMessage.new
+    message.id = id
+    message.args = args
+    $context.send_message message
+    if message.handled?
+      return message.result, true
+    else
+      return nil, false
+    end
+  end
+end
+
+class InterpluginWrapper
+  def method_missing(meth, *args)
+    Messages.send(meth, *args)
+  end
+end
+$messages = InterpluginWrapper.new
+
+def rbmessages_handle(message)
+  Messages.handle_message(message)
+end
 
 
