@@ -27,7 +27,7 @@ end
 def register_event(id, type, priority = :normal, ignore_cancelled = false, &handler)
   full_class_name = nil
   if type.first == :custom
-    full_class_name = type.join(".")
+    full_class_name = type.tail.join(".")
   else
     full_class_name = "org.bukkit.event." + type.join(".")
   end
@@ -189,6 +189,20 @@ class Symbol
   end
   def plugin?
     !self.plugin.nil?
+  end
+end
+
+class Array
+  def head
+    self.first
+  end
+
+  def tail
+    self.slice 1, self.length - 1
+  end
+
+  def init
+    self.slice 0, self.length - 1
   end
 end
 
