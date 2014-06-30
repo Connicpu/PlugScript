@@ -330,7 +330,8 @@ public class PlugScript extends JavaPlugin {
         }
 
         public void registerCommand(ScriptCommandExecutor command)
-            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+                throws NoSuchMethodException, InvocationTargetException,
+                IllegalAccessException, NoSuchFieldException {
             command.setPluginName(engineName);
 
             Server server = getServer();
@@ -339,19 +340,24 @@ public class PlugScript extends JavaPlugin {
 
             Command existingCommand = commandMap.getCommand(command.getName());
             if (existingCommand instanceof ScriptCommandExecutor) {
-                commandMap.getCommands().remove(existingCommand);
+                unregisterCommand(command.getName());
             }
 
             commandMap.register("ps:" + getEngineName() + ":", command);
         }
 
         public void unregisterCommand(String name)
-            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+                throws NoSuchMethodException, InvocationTargetException,
+                IllegalAccessException, NoSuchFieldException {
             Server server = getServer();
             SimpleCommandMap commandMap = (SimpleCommandMap) server
                 .getClass().getMethod("getCommandMap").invoke(server);
-            Command command = commandMap.getCommand(name);
-            commandMap.getCommands().remove(command);
+            Command existingCommand = commandMap.getCommand(name);
+            if (existingCommand instanceof ScriptCommandExecutor) {
+                Map<String, Command> knownCommands = (Map<String, Command>) commandMap
+                        .getClass().getField("knownCommands").get(commandMap);
+                knownCommands.values().remove(existingCommand);
+            }
         }
 
         public void unregisterAllCommands()
